@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 import inspect
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generic, cast
@@ -387,7 +386,7 @@ class AgentRunner:
             disabled=run_config.tracing_disabled,
         ):
             current_turn = 0
-            original_input: str | list[TResponseInputItem] = copy.deepcopy(prepared_input)
+            original_input: str | list[TResponseInputItem] = _copy_str_or_list(prepared_input)
             generated_items: list[RunItem] = []
             model_responses: list[ModelResponse] = []
 
@@ -446,7 +445,7 @@ class AgentRunner:
                                 starting_agent,
                                 starting_agent.input_guardrails
                                 + (run_config.input_guardrails or []),
-                                copy.deepcopy(prepared_input),
+                                _copy_str_or_list(prepared_input),
                                 context_wrapper,
                             ),
                             self._run_single_turn(
@@ -594,7 +593,7 @@ class AgentRunner:
         )
 
         streamed_result = RunResultStreaming(
-            input=copy.deepcopy(input),
+            input=_copy_str_or_list(input),
             new_items=[],
             current_agent=starting_agent,
             raw_responses=[],
@@ -647,7 +646,7 @@ class AgentRunner:
 
         try:
             model_input = ModelInputData(
-                input=copy.deepcopy(effective_input),
+                input=effective_input.copy(),
                 instructions=effective_instructions,
             )
             filter_payload: CallModelData[TContext] = CallModelData(
@@ -786,7 +785,7 @@ class AgentRunner:
                         cls._run_input_guardrails_with_queue(
                             starting_agent,
                             starting_agent.input_guardrails + (run_config.input_guardrails or []),
-                            copy.deepcopy(ItemHelpers.input_to_new_input_list(prepared_input)),
+                            ItemHelpers.input_to_new_input_list(prepared_input),
                             context_wrapper,
                             streamed_result,
                             current_span,
@@ -936,6 +935,7 @@ class AgentRunner:
         input = ItemHelpers.input_to_new_input_list(streamed_result.input)
         input.extend([item.to_input_item() for item in streamed_result.new_items])
 
+        # THIS IS THE RESOLVED CONFLICT BLOCK
         filtered = await cls._maybe_filter_model_input(
             agent=agent,
             run_config=run_config,
@@ -943,6 +943,12 @@ class AgentRunner:
             input_items=input,
             system_instructions=system_prompt,
         )
+
+        # Call hook just before the model is invoked, with the correct system_prompt.
+        if agent.hooks:
+            await agent.hooks.on_llm_start(
+                context_wrapper, agent, filtered.instructions, filtered.input
+            )
 
         # 1. Stream the output events
         async for event in model.stream_response(
@@ -979,6 +985,10 @@ class AgentRunner:
                 context_wrapper.usage.add(usage)
 
             streamed_result._event_queue.put_nowait(RawResponsesStreamEvent(data=event))
+
+        # Call hook just after the model response is finalized.
+        if agent.hooks and final_response is not None:
+            await agent.hooks.on_llm_end(context_wrapper, agent, final_response)
 
         # 2. At this point, the streaming is complete for this turn of the agent loop.
         if not final_response:
@@ -1253,6 +1263,14 @@ class AgentRunner:
         model = cls._get_model(agent, run_config)
         model_settings = agent.model_settings.resolve(run_config.model_settings)
         model_settings = RunImpl.maybe_reset_tool_choice(agent, tool_use_tracker, model_settings)
+        # If the agent has hooks, we need to call them before and after the LLM call
+        if agent.hooks:
+            await agent.hooks.on_llm_start(
+                context_wrapper,
+                agent,
+                filtered.instructions,  # Use filtered instructions
+                filtered.input,  # Use filtered input
+            )
 
         new_response = await model.get_response(
             system_instructions=filtered.instructions,
@@ -1267,6 +1285,9 @@ class AgentRunner:
             previous_response_id=previous_response_id,
             prompt=prompt_config,
         )
+        # If the agent has hooks, we need to call them after the LLM call
+        if agent.hooks:
+            await agent.hooks.on_llm_end(context_wrapper, agent, new_response)
 
         context_wrapper.usage.add(new_response.usage)
 
@@ -1376,3 +1397,9 @@ class AgentRunner:
 
 
 DEFAULT_AGENT_RUNNER = AgentRunner()
+
+
+def _copy_str_or_list(input: str | list[TResponseInputItem]) -> str | list[TResponseInputItem]:
+    if isinstance(input, str):
+        return input
+    return input.copy()

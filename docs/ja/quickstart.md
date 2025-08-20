@@ -6,7 +6,7 @@ search:
 
 ## プロジェクトと仮想環境の作成
 
-これは一度だけ行います。
+この操作は一度だけで大丈夫です。
 
 ```bash
 mkdir my_project
@@ -30,7 +30,7 @@ pip install openai-agents # or `uv add openai-agents`, etc
 
 ### OpenAI API キーの設定
 
-お持ちでない場合は、OpenAI API キーを作成するために [こちらの手順](https://platform.openai.com/docs/quickstart#create-and-export-an-api-key)に従ってください。
+まだ持っていない場合は、[これらの手順](https://platform.openai.com/docs/quickstart#create-and-export-an-api-key)に従って OpenAI API キーを作成してください。
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -38,7 +38,7 @@ export OPENAI_API_KEY=sk-...
 
 ## 最初のエージェントの作成
 
-エージェントは instructions（instructions）、名前、そして任意の設定（`model_config` など）で定義します。
+エージェントは instructions、名前、オプションの設定（`model_config` など）で定義します。
 
 ```python
 from agents import Agent
@@ -49,9 +49,9 @@ agent = Agent(
 )
 ```
 
-## いくつかのエージェントの追加
+## さらにいくつかのエージェントの追加
 
-追加のエージェントも同様に定義できます。`handoff_descriptions` はハンドオフ ルーティングを判断するための追加コンテキストを提供します。
+追加のエージェントも同様に定義できます。`handoff_descriptions` は、ハンドオフ ルーティングを判断するための追加コンテキストを提供します。
 
 ```python
 from agents import Agent
@@ -69,9 +69,9 @@ math_tutor_agent = Agent(
 )
 ```
 
-## handoffs の定義
+## ハンドオフの定義
 
-各エージェントで、タスクを前進させる方法を決めるために選択できる、送信先 handoff オプションの在庫（一覧）を定義できます。
+各エージェントで、タスクを前進させる方法を判断するために選択可能な、送信側ハンドオフ オプションの一覧を定義できます。
 
 ```python
 triage_agent = Agent(
@@ -81,9 +81,9 @@ triage_agent = Agent(
 )
 ```
 
-## エージェントのオーケストレーションの実行
+## エージェント オーケストレーションの実行
 
-ワークフローが実行され、トリアージ エージェントが 2 つの専門エージェント間で正しくルーティングすることを確認しましょう。
+ワークフローが実行され、トリアージ エージェントが 2 つの専門エージェント間を正しくルーティングすることを確認しましょう。
 
 ```python
 from agents import Runner
@@ -123,7 +123,7 @@ async def homework_guardrail(ctx, agent, input_data):
 
 ## まとめて実行
 
-すべてを組み合わせて、handoffs と入力ガードレールを使い、ワークフロー全体を実行しましょう。
+すべてをまとめて、ハンドオフと入力ガードレールを使ってワークフロー全体を実行しましょう。
 
 ```python
 from agents import Agent, InputGuardrail, GuardrailFunctionOutput, Runner
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
 ## トレースの表示
 
-エージェント実行中に何が起こったかを確認するには、[OpenAI ダッシュボードの Trace viewer](https://platform.openai.com/traces) に移動して、エージェント実行のトレースを表示します。
+エージェント実行中に何が起きたかを確認するには、OpenAI ダッシュボードのトレース ビューアーに移動して、エージェント実行のトレースを表示します。
 
 ## 次のステップ
 
